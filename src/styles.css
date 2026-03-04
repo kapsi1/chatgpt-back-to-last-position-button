@@ -1,0 +1,81 @@
+/*
+ * "Back to last position" button — injected into ChatGPT's UI.
+ *
+ * Mirrors the native "scroll to bottom" button styling (32×32 circle at the
+ * horizontal centre of the thread).  Our button sits at the TOP instead.
+ */
+
+.cgpt-btp-btn {
+  /* Reset */
+  all: unset;
+  box-sizing: border-box;
+
+  /* Match native scroll-to-bottom button dimensions & shape */
+  position: absolute;
+  z-index: 30;
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* Horizontal centre */
+  left: 50%;
+  transform: translateX(-50%);
+
+  /* Stick to the top of the scroll viewport (below the header) */
+  top: calc(var(--header-height, 56px) + 24px);
+
+  /* Colours — using ChatGPT's own design tokens */
+  background-color: var(--bg-primary, #ffffff);
+  border: 1px solid var(--border-default, rgba(0, 0, 0, 0.1));
+  color: var(--text-secondary, #6e6e80);
+
+  /* Subtle shadow for depth */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+
+  /* Show / hide transitions */
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+/* Dark-mode overrides — ChatGPT adds `.dark` on the root `<html>` element */
+:root.dark .cgpt-btp-btn {
+  background-color: var(--bg-primary, #2f2f2f);
+  border-color: var(--border-default, rgba(255, 255, 255, 0.1));
+  color: var(--text-secondary, #b4b4b4);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.24);
+}
+
+.cgpt-btp-btn--visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.cgpt-btp-btn:hover {
+  background-color: var(--surface-hover, rgba(0, 0, 0, 0.04));
+}
+
+:root.dark .cgpt-btp-btn:hover {
+  background-color: var(--surface-hover, rgba(255, 255, 255, 0.08));
+}
+
+.cgpt-btp-btn:focus-visible {
+  outline: 2px solid var(--text-primary, #0d0d0d);
+  outline-offset: 2px;
+}
+
+.cgpt-btp-btn svg {
+  width: 20px;
+  height: 20px;
+  color: var(--text-primary, #0d0d0d);
+}
+
+:root.dark .cgpt-btp-btn svg {
+  color: var(--text-primary, #ececec);
+}

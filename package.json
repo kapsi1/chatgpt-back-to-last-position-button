@@ -1,12 +1,15 @@
 {
   "name": "chatgpt-back-to-last-position-button",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "version": "0.1.0",
+  "description": "Browser extension that adds a 'scroll back to last position' button to ChatGPT",
+  "private": true,
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "vite",
+    "build": "vite build",
+    "zip": "cd dist && tar -a -cf ../extension.zip ."
   },
-  "keywords": [],
+  "keywords": ["chatgpt", "browser-extension", "chrome-extension"],
   "author": "",
   "license": "ISC",
   "packageManager": "pnpm@10.27.0",

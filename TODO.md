@@ -14,13 +14,13 @@ When a user sends a message on ChatGPT, the chat auto-scrolls to the bottom to s
 
 ### 1. Project Scaffolding
 
-- [ ] **1.1 Initialize the project with pnpm and Vite**
+- [x] **1.1 Initialize the project with pnpm and Vite**
   - Run `pnpm init` to create `package.json`.
   - Install Vite, TypeScript, and `@crxjs/vite-plugin` (CRXJS Vite Plugin) as dev dependencies. CRXJS handles Chrome Extension manifest integration with Vite's HMR for a smooth dev experience.
   - Create `tsconfig.json` with `strict: true`, `target: "ES2022"`, `module: "ESNext"`, `moduleResolution: "bundler"`, and `"dom"` in `lib`.
   - Create `vite.config.ts` importing `crx` from `@crxjs/vite-plugin` and the manifest. Configure the plugin with the manifest import.
 
-- [ ] **1.2 Create the Chrome Extension manifest (`manifest.json`)**
+- [x] **1.2 Create the Chrome Extension manifest (`manifest.json`)**
   - Use Manifest V3.
   - Set `name`, `version` (`0.1.0`), `description`, and `manifest_version: 3`.
   - Add `content_scripts` entry:
@@ -31,7 +31,7 @@ When a user sends a message on ChatGPT, the chat auto-scrolls to the bottom to s
   - Add `permissions`: likely none needed beyond content script host access.
   - Ensure the manifest is compatible with both Chrome and Opera (Opera uses Chromium and supports MV3).
 
-- [ ] **1.3 Set up the project directory structure**
+- [x] **1.3 Set up the project directory structure**
   ```
   chatgpt-back-to-last-position-button/
   ├── src/
@@ -54,12 +54,12 @@ When a user sends a message on ChatGPT, the chat auto-scrolls to the bottom to s
 
 ### 2. Identify ChatGPT DOM Structure
 
-- [ ] **2.1 Inspect and document the ChatGPT scrollable container**
+- [x] **2.1 Inspect and document the ChatGPT scrollable container**
   - Open ChatGPT in the browser and use DevTools to identify the scrollable element that contains the conversation messages. This is the element whose `scrollTop` we will track.
   - Document its selector (e.g., a `div` with a specific `class`, `role`, or `data-*` attribute). ChatGPT's class names are obfuscated/hashed, so prefer attribute-based or structural selectors where possible (e.g., `[role="presentation"]` or the element matched by a known structural pattern).
   - Note: ChatGPT is a single-page app (SPA). The container may be re-created when switching between conversations, so selectors must be re-evaluated after navigation.
 
-- [ ] **2.2 Inspect and document the native "scroll to bottom" button**
+- [x] **2.2 Inspect and document the native "scroll to bottom" button**
   - Locate the existing "scroll to bottom" (down-arrow) button that appears when you scroll up in a conversation.
   - Document its:
     - DOM position relative to the scrollable container (e.g., is it a sibling? inside it? in a fixed overlay?).
@@ -67,7 +67,7 @@ When a user sends a message on ChatGPT, the chat auto-scrolls to the bottom to s
     - The SVG icon used for the down arrow (copy the SVG path data).
   - We will mirror this button's style for our "up arrow" button, but positioned at the **top** of the container rather than the bottom.
 
-- [ ] **2.3 Identify the "send message" trigger**
+- [x] **2.3 Identify the "send message" trigger**
   - Determine how to detect when the user submits a message. Options:
     - Listen for a click on the send button (identify its selector).
     - Listen for `Enter` keypress on the message textarea (identify the textarea selector).
@@ -78,7 +78,7 @@ When a user sends a message on ChatGPT, the chat auto-scrolls to the bottom to s
 
 ### 3. Scroll Position Tracking (`scroll-tracker.ts`)
 
-- [ ] **3.1 Implement scroll position saving**
+- [x] **3.1 Implement scroll position saving**
   - Create a `ScrollTracker` class (or a set of functions) that:
     - Holds a reference to the scrollable container element.
     - Stores the saved `scrollTop` value (the position to return to).
@@ -86,17 +86,17 @@ When a user sends a message on ChatGPT, the chat auto-scrolls to the bottom to s
     - Exposes a `getSavedPosition(): number | null` method.
     - Exposes a `clearPosition()` method to reset the saved value to `null`.
 
-- [ ] **3.2 Implement "is scrolled to bottom" detection**
+- [x] **3.2 Implement "is scrolled to bottom" detection**
   - Create an `isScrolledToBottom(container: HTMLElement): boolean` utility.
   - Logic: `container.scrollHeight - container.scrollTop - container.clientHeight < threshold` (e.g., threshold = 10px to account for sub-pixel rendering).
   - This is used to decide whether to save the position: if the user is already at the bottom, there's no position worth saving.
 
-- [ ] **3.3 Implement smooth scroll-to-position**
+- [x] **3.3 Implement smooth scroll-to-position**
   - Create a `scrollToPosition(container: HTMLElement, targetScrollTop: number): void` function.
   - Use `container.scrollTo({ top: targetScrollTop, behavior: 'smooth' })` for native smooth scrolling.
   - Consider fallback: if `smooth` scrolling is not supported or is overridden by ChatGPT's own scroll behavior, implement a manual `requestAnimationFrame`-based easing animation (e.g., ease-in-out over ~400ms).
 
-- [ ] **3.4 Hook into the send-message event to save position**
+- [x] **3.4 Hook into the send-message event to save position**
   - In the content script, after identifying the textarea/send button:
     - Attach a `keydown` listener on the textarea to detect `Enter` (without `Shift`).
     - Attach a `click` listener on the send button.
@@ -107,14 +107,14 @@ When a user sends a message on ChatGPT, the chat auto-scrolls to the bottom to s
 
 ### 4. Button UI (`button-manager.ts` + `styles.css`)
 
-- [ ] **4.1 Create the "scroll to saved position" button element**
+- [x] **4.1 Create the "scroll to saved position" button element**
   - Create a `ButtonManager` class that:
     - Builds a `<button>` element with an **up-arrow SVG icon** inside it.
     - The SVG should be the same as ChatGPT's down-arrow icon but rotated 180° (or use a fresh up-arrow SVG path). Match stroke width, viewBox, and sizing.
     - Apply CSS classes for styling (defined in `styles.css`).
     - Attaches a click handler that calls `scrollToPosition()` with the saved scroll position, then hides the button.
 
-- [ ] **4.2 Style the button to match ChatGPT's native down-arrow button**
+- [x] **4.2 Style the button to match ChatGPT's native down-arrow button**
   - In `styles.css`, define styles scoped with a unique prefix (e.g., `.cgpt-btp-btn`) to avoid collision with ChatGPT's own styles:
     - Same dimensions as the native button (e.g., 32×32px or whatever the measured size is).
     - Same border-radius (fully rounded / circle).
@@ -124,7 +124,7 @@ When a user sends a message on ChatGPT, the chat auto-scrolls to the bottom to s
   - Position the button at the **top** of the chat area, horizontally centered, mirroring how the native button sits at the bottom.
     - Use `position: sticky` or `position: absolute` + a wrapper, depending on the DOM structure. It should "stick" to the top of the visible scroll area.
 
-- [ ] **4.3 Implement show/hide logic**
+- [x] **4.3 Implement show/hide logic**
   - The button should be **shown** when:
     - A scroll position has been saved (i.e., the user sent a message while not at the bottom).
     - The user is currently scrolled **away** from the saved position (i.e., auto-scroll moved them).
@@ -139,21 +139,21 @@ When a user sends a message on ChatGPT, the chat auto-scrolls to the bottom to s
 
 ### 5. DOM Observation & Content Script Orchestration (`dom-observer.ts`, `content-script.ts`)
 
-- [ ] **5.1 Implement a MutationObserver to detect page readiness and navigation**
+- [x] **5.1 Implement a MutationObserver to detect page readiness and navigation**
   - ChatGPT is an SPA; the chat container may not exist on initial load and is replaced on conversation switches.
   - Create a `DomObserver` class with:
     - A method `waitForElement(selector: string): Promise<HTMLElement>` that uses a `MutationObserver` to resolve when the target element appears in the DOM.
     - A method `onElementRemoved(element: HTMLElement, callback: () => void)` to detect when the chat container is removed (conversation switch), so we can clean up and re-initialize.
   - Alternatively, use `MutationObserver` on `document.body` (or a stable ancestor) to watch for the chat container appearing/disappearing.
 
-- [ ] **5.2 Handle conversation switches and cleanup**
+- [x] **5.2 Handle conversation switches and cleanup**
   - When the user switches to a different conversation:
     - Clear the saved scroll position.
     - Remove the injected button from the old container.
     - Re-run detection for the new container and re-attach all listeners.
   - When the page title/URL changes (use `history.pushState`/`popstate` listeners or observe URL changes with a polling interval), treat it as a potential conversation switch.
 
-- [ ] **5.3 Wire everything together in `content-script.ts`**
+- [x] **5.3 Wire everything together in `content-script.ts`**
   - This is the main entry point that:
     1. Waits for the scrollable chat container to appear using `DomObserver`.
     2. Instantiates `ScrollTracker` with the container.
@@ -167,7 +167,7 @@ When a user sends a message on ChatGPT, the chat auto-scrolls to the bottom to s
 
 ### 6. Theme Support
 
-- [ ] **6.1 Support both ChatGPT light and dark themes**
+- [x] **6.1 Support both ChatGPT light and dark themes**
   - Inspect ChatGPT's theme mechanism:
     - Does it use a `data-theme` attribute on `<html>` or `<body>`?
     - Does it use CSS custom properties (e.g., `--bg-color`, `--text-color`) that change per theme?
@@ -179,7 +179,7 @@ When a user sends a message on ChatGPT, the chat auto-scrolls to the bottom to s
 
 ### 7. Build & Packaging
 
-- [ ] **7.1 Configure Vite build for production**
+- [x] **7.1 Configure Vite build for production**
   - Ensure `vite build` produces a valid extension in `dist/`:
     - The manifest is copied to `dist/`.
     - Content script JS is bundled and output to `dist/`.
@@ -187,7 +187,7 @@ When a user sends a message on ChatGPT, the chat auto-scrolls to the bottom to s
     - Icons are copied to `dist/icons/`.
   - Test the production build by loading `dist/` as an unpacked extension.
 
-- [ ] **7.2 Create a ZIP packaging script**
+- [x] **7.2 Create a ZIP packaging script**
   - Add a `package.json` script (e.g., `"zip": "cd dist && zip -r ../extension.zip ."`) to create a `.zip` file suitable for uploading to the Chrome Web Store and Opera Add-ons.
   - Ensure the ZIP doesn't include source maps or dev artifacts.
 
@@ -195,12 +195,12 @@ When a user sends a message on ChatGPT, the chat auto-scrolls to the bottom to s
 
 ### 8. Extension Icons & Metadata
 
-- [ ] **8.1 Create extension icons**
+- [x] **8.1 Create extension icons**
   - Design or generate icons at 16×16, 48×48, and 128×128 pixels.
   - The icon should visually convey "scroll up" or "back to position" — e.g., an up arrow or a bookmark-style icon.
   - Place in `public/icons/icon-16.png`, `public/icons/icon-48.png`, `public/icons/icon-128.png`.
 
-- [ ] **8.2 Write a README.md**
+- [x] **8.2 Write a README.md**
   - Describe the extension's purpose and behavior.
   - Include installation instructions (Chrome: load unpacked, Opera: same process).
   - Include development instructions (`pnpm install`, `pnpm dev`, `pnpm build`).
