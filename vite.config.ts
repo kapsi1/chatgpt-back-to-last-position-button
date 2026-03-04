@@ -26,6 +26,10 @@ export default defineConfig({
         {
           src: 'public/*',
           dest: ''
+        },
+        {
+          src: 'manifest.json',
+          dest: ''
         }
       ]
     })

@@ -50,23 +50,27 @@ export function onUrlChange(callback: (newPath: string) => void): () => void {
   };
 
   // Monkey-patch pushState so we detect programmatic navigation too
-  const origPushState = history.pushState.bind(history);
-  history.pushState = (...args: Parameters<typeof history.pushState>) => {
-    origPushState(...args);
+  const origPushState = history.pushState;
+  history.pushState = function(...args) {
+    origPushState.apply(this, args);
     check();
   };
 
-  const origReplaceState = history.replaceState.bind(history);
-  history.replaceState = (...args: Parameters<typeof history.replaceState>) => {
-    origReplaceState(...args);
+  const origReplaceState = history.replaceState;
+  history.replaceState = function(...args) {
+    origReplaceState.apply(this, args);
     check();
   };
 
   window.addEventListener("popstate", check);
+  
+  // Also poll as a fallback (some frameworks bypass pushState or use it in ways that break simple wrappers)
+  const pollTimer = setInterval(check, 500);
 
   return () => {
     history.pushState = origPushState;
     history.replaceState = origReplaceState;
     window.removeEventListener("popstate", check);
+    clearInterval(pollTimer);
   };
 }

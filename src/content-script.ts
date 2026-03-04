@@ -179,6 +179,8 @@ function initForContainer(scrollRoot: HTMLElement): void {
   // ── Scroll listener — show / hide button ───────────────────────
   // We use a global listener because ChatGPT swaps the scroll container frequently.
   const handleScroll = rafThrottle(() => {
+    if (navigationInProgress) return;
+    
     log("handleScroll heartbeat");
     const liveRoot = findLiveScrollRoot();
     if (!liveRoot) return;
@@ -222,36 +224,45 @@ function teardown(clearPosition = true): void {
 
 // ── Bootstrap ──────────────────────────────────────────────────────
 
+let navigationInProgress = false;
+
 async function bootstrap(): Promise<void> {
   log("Bootstrap started");
 
-  let scrollRoot = findLiveScrollRoot();
-  if (!scrollRoot) {
-    log("Waiting for scrollRoot...");
-    scrollRoot = await waitForElement(SCROLL_ROOT_SELECTOR);
-  }
-  
-  if (scrollRoot) {
-    log("scrollRoot selected:", scrollRoot.tagName, {
-      id: scrollRoot.id,
-      sh: scrollRoot.scrollHeight,
-      ch: scrollRoot.clientHeight
-    });
-    initForContainer(scrollRoot);
-  }
+  const startForCurrentPage = async () => {
+    const scrollRoot = findLiveScrollRoot() || await waitForElement(SCROLL_ROOT_SELECTOR);
+    if (scrollRoot) {
+      log("scrollRoot selected, initializing:", scrollRoot.tagName);
+      initForContainer(scrollRoot);
+    }
+  };
+
+  await startForCurrentPage();
 
   // Re-initialise on SPA navigation
-  const cleanupUrlWatcher = onUrlChange(async (newPath) => {
+  // Note: We don't add THIS cleanup to the 'cleanups' array because 
+  // teardown() clears 'cleanups', and we want the URL watcher to persist.
+  onUrlChange(async (newPath) => {
+    if (navigationInProgress) return;
+    navigationInProgress = true;
+
     log("URL change detected:", newPath);
-    // When starting a new thread, the URL changes from / to /c/ID.
-    // We want to preserve the saved scroll position across this specific transition.
-    const isNewThreadTransition = tracker.hasSavedPosition();
-    teardown(!isNewThreadTransition /* clear only if not in a conversation transition */);
-    const newRoot = await waitForElement(SCROLL_ROOT_SELECTOR);
-    log("New scrollRoot found after navigation:", newRoot);
-    initForContainer(newRoot);
+
+    // Hide button and clear position immediately on navigation.
+    // Any scroll state from the old thread is irrelevant in the new one.
+    buttonManager.hide();
+    teardown(true);
+    
+    try {
+      const newRoot = await waitForElement(SCROLL_ROOT_SELECTOR);
+      log("New scrollRoot found after navigation:", newRoot);
+      initForContainer(newRoot);
+    } catch {
+      log("Navigation: new scroll root not found or timed out.");
+    } finally {
+      navigationInProgress = false;
+    }
   });
-  cleanups.push(cleanupUrlWatcher);
 }
 
 bootstrap();
