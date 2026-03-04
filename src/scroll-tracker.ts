@@ -4,10 +4,18 @@ const BOTTOM_THRESHOLD_PX = 10;
  * Checks whether the given scrollable element is scrolled to (or very near) the bottom.
  */
 export function isScrolledToBottom(container: HTMLElement): boolean {
-  return (
-    container.scrollHeight - container.scrollTop - container.clientHeight <
-    BOTTOM_THRESHOLD_PX
-  );
+  const { scrollTop, scrollHeight, clientHeight } = container;
+  
+  // If dimensions are zero, something is wrong (element hidden or detached)
+  // We should not treat this as "at bottom".
+  if (scrollHeight === 0 && clientHeight === 0) {
+    console.warn("[CGPT-BTP] isScrolledToBottom: Zero dimensions, ignoring check.");
+    return false;
+  }
+
+  const isAtBottom = scrollHeight - scrollTop - clientHeight < BOTTOM_THRESHOLD_PX;
+  console.log(`[CGPT-BTP] isScrolledToBottom: st=${scrollTop} sh=${scrollHeight} ch=${clientHeight} atBottom=${isAtBottom}`);
+  return isAtBottom;
 }
 
 /**
@@ -23,9 +31,13 @@ export class ScrollTracker {
    * original reading position across rapid message sends).
    */
   savePosition(container: HTMLElement): void {
-    if (this.savedScrollTop !== null) return; // already saved
-    if (isScrolledToBottom(container)) return; // nothing to save
+    const atBottom = isScrolledToBottom(container);
+    if (atBottom) {
+      console.log("[CGPT-BTP] savePosition: container at the bottom, skipping");
+      return; 
+    }
     this.savedScrollTop = container.scrollTop;
+    console.log("[CGPT-BTP] savePosition: saved/updated to", this.savedScrollTop);
   }
 
   getSavedPosition(): number | null {
@@ -33,6 +45,7 @@ export class ScrollTracker {
   }
 
   clearPosition(): void {
+    console.log("[CGPT-BTP] clearPosition");
     this.savedScrollTop = null;
   }
 

@@ -8,11 +8,10 @@
 .cgpt-btp-btn {
   /* Reset */
   all: unset;
-  box-sizing: border-box;
-
   /* Match native scroll-to-bottom button dimensions & shape */
-  position: absolute;
-  z-index: 30;
+  position: sticky;
+  z-index: 10000; /* Extremely high to stay on top */
+  top: 72px; /* Fixed offset from top of viewport */
   width: 32px;
   height: 32px;
   border-radius: 9999px;
@@ -21,12 +20,9 @@
   align-items: center;
   justify-content: center;
 
-  /* Horizontal centre */
-  left: 50%;
-  transform: translateX(-50%);
-
-  /* Stick to the top of the scroll viewport (below the header) */
-  top: calc(var(--header-height, 56px) + 24px);
+  /* Centering in flex-column container */
+  align-self: center;
+  margin-bottom: -32px; /* Prevent taking up layout space in the message flow */
 
   /* Colours — using ChatGPT's own design tokens */
   background-color: var(--bg-primary, #ffffff);
@@ -36,7 +32,6 @@
   /* Subtle shadow for depth */
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 
-  /* Show / hide transitions */
   opacity: 0;
   pointer-events: none;
   transition:

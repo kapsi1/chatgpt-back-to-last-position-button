@@ -15,18 +15,26 @@ import { ScrollTracker } from "./scroll-tracker";
 import { ButtonManager } from "./button-manager";
 import { waitForElement, onUrlChange } from "./dom-observer";
 
+const LOG_PREFIX = "[CGPT-BTP]";
+
+function log(...args: unknown[]) {
+  console.log(LOG_PREFIX, ...args);
+}
+
 // ── Selectors (derived from ChatGPT's DOM) ─────────────────────────
-const SCROLL_ROOT_SELECTOR = "[data-scroll-root]";
+// The main scrollable area for chat messages.  ChatGPT usually has
+// several [data-scroll-root] elements (sidebar, main chat, etc.),
+// but the main one is inside the <main> element.
+const SCROLL_ROOT_SELECTOR = "main [data-scroll-root]";
 const COMPOSER_FORM_SELECTOR = 'form[data-type="unified-composer"]';
 const PROMPT_TEXTAREA_SELECTOR = "#prompt-textarea";
 const SEND_BUTTON_SELECTOR =
-  'form[data-type="unified-composer"] button.composer-submit-button-color';
+  'button[data-testid="send-button"], button.composer-submit-button-color';
 
 // ── State ──────────────────────────────────────────────────────────
-let tracker = new ScrollTracker();
-let buttonManager = new ButtonManager();
+const tracker = new ScrollTracker();
+const buttonManager = new ButtonManager();
 let cleanups: (() => void)[] = [];
-let scrollListenerAttached = false;
 
 // ── Helpers ────────────────────────────────────────────────────────
 
@@ -48,14 +56,15 @@ function rafThrottle(fn: () => void): () => void {
  * Attaches all event listeners and the button.
  */
 function initForContainer(scrollRoot: HTMLElement): void {
-  teardown(); // clean up any previous instance
-
-  tracker = new ScrollTracker();
-  buttonManager = new ButtonManager();
+  log("initForContainer", scrollRoot);
+  // Manual cleanups here because we want to preserve tracker/buttonManager state
+  for (const fn of cleanups) fn();
+  cleanups = [];
 
   // Inject the button into the scroll container
   buttonManager.inject(scrollRoot, () => {
     const pos = tracker.getSavedPosition();
+    log("Button clicked, saved position:", pos);
     if (pos !== null) {
       buttonManager.scrollTo(pos);
       tracker.clearPosition();
@@ -70,14 +79,24 @@ function initForContainer(scrollRoot: HTMLElement): void {
     );
 
     const onBeforeSend = () => {
-      tracker.savePosition(scrollRoot);
+      log("onBeforeSend - user submitted message (via fallback/Enter)");
+      const roots = Array.from(document.querySelectorAll<HTMLElement>("[data-scroll-root]"));
+      const liveRoot = roots.find(r => r.querySelector('[data-turn-id]') && r.offsetHeight > 0) || roots[0];
+      
+      if (liveRoot) {
+        tracker.savePosition(liveRoot);
+      } else {
+        log("ERROR: No scroll root found during Enter key!");
+      }
     };
 
     // Capture Enter key (without Shift) on the prompt textarea
     if (textarea) {
+      log("Attaching Enter key listener to textarea");
       const handler = (e: Event) => {
         const ke = e as KeyboardEvent;
         if (ke.key === "Enter" && !ke.shiftKey) {
+          log("Enter key detected");
           onBeforeSend();
         }
       };
@@ -87,28 +106,46 @@ function initForContainer(scrollRoot: HTMLElement): void {
       );
     }
 
-    // Capture click on the send button
+    // Capture mousedown on the send button
     if (form) {
+      log("Attaching mousedown listener to composer form");
       const handler = (e: Event) => {
         const target = e.target as HTMLElement | null;
-        if (target?.closest(SEND_BUTTON_SELECTOR)) {
-          onBeforeSend();
+        const btn = target?.closest("button");
+        if (btn) {
+          log("Button mousedown in form:", btn.getAttribute("aria-label") || btn.dataset.testid || "unknown button");
+          
+          if (btn.closest(SEND_BUTTON_SELECTOR) || 
+              btn.getAttribute("aria-label")?.toLowerCase().includes("send") ||
+              btn.dataset.testid === "send-button") {
+            log("Send button detection triggered (mousedown)");
+            
+            // Re-identify the correct scroll root that holds the messages
+            const roots = Array.from(document.querySelectorAll<HTMLElement>("[data-scroll-root]"));
+            const liveRoot = roots.find(r => r.querySelector('[data-turn-id]') && r.offsetHeight > 0) || roots[0];
+            
+            if (liveRoot) {
+              tracker.savePosition(liveRoot);
+            } else {
+              log("ERROR: No scroll root found during send!");
+            }
+          }
         }
       };
-      form.addEventListener("click", handler, { capture: true });
+      // Use mousedown to beat most other listeners
+      form.addEventListener("mousedown", handler, { capture: true });
       cleanups.push(() =>
-        form.removeEventListener("click", handler, { capture: true }),
+        form.removeEventListener("mousedown", handler, { capture: true }),
       );
     }
   };
 
   attachSendListeners();
 
-  // Re-attach send listeners when the composer form is replaced (e.g. after
-  // a conversation switch where the DOM is rebuilt but scrollRoot remains).
   const composerObserver = new MutationObserver(() => {
     const form = document.querySelector<HTMLFormElement>(COMPOSER_FORM_SELECTOR);
     if (form && !form.dataset.btpListenersAttached) {
+      log("Composer form refreshed - re-attaching listeners");
       form.dataset.btpListenersAttached = "1";
       attachSendListeners();
     }
@@ -116,62 +153,122 @@ function initForContainer(scrollRoot: HTMLElement): void {
   composerObserver.observe(document.body, { childList: true, subtree: true });
   cleanups.push(() => composerObserver.disconnect());
 
+  // ── Watch for button removal (if React replaces innerHTML) ───────
+  const rootObserver = new MutationObserver(() => {
+    if (!buttonManager.isAttached()) {
+      log("Button removed from scrollRoot - re-injecting");
+      buttonManager.inject(scrollRoot, () => {
+        const pos = tracker.getSavedPosition();
+        if (pos !== null) {
+          buttonManager.scrollTo(pos);
+          tracker.clearPosition();
+        }
+      });
+    }
+  });
+  rootObserver.observe(scrollRoot, { childList: true });
+  cleanups.push(() => rootObserver.disconnect());
+
   // ── Scroll listener — show / hide button ───────────────────────
-  const onScroll = rafThrottle(() => {
+  // We use a global listener because ChatGPT swaps the scroll container frequently.
+  const handleScroll = rafThrottle(() => {
+    log("handleScroll heartbeat");
+    // Re-acquire the live conversation root
+    const roots = Array.from(document.querySelectorAll<HTMLElement>("[data-scroll-root]"));
+    const liveRoot = roots.find(r => r.querySelector('[data-turn-id]') && r.offsetHeight > 0) || roots[0];
+
+    if (!liveRoot) return;
+
+    // Ensure button is in the live root
+    if (!buttonManager.isAttached() || buttonManager.getContainer() !== liveRoot) {
+      log("Ensuring button is attached to live root");
+      buttonManager.inject(liveRoot, () => {
+        const pos = tracker.getSavedPosition();
+        if (pos !== null) {
+          buttonManager.scrollTo(pos);
+          tracker.clearPosition();
+        }
+      });
+    }
+
     const savedPos = tracker.getSavedPosition();
-    if (savedPos === null) {
-      buttonManager.hide();
-      return;
-    }
-
-    // Show the button when the user has been auto-scrolled away from their
-    // saved position (i.e. they are now further down).
-    const currentScroll = scrollRoot.scrollTop;
-    const isAwayFromSaved = currentScroll > savedPos + 50;
-
-    if (isAwayFromSaved) {
-      buttonManager.show();
-    }
-
-    // If the user manually scrolled back to (or past) the saved position,
-    // clear it and hide the button.
-    if (currentScroll <= savedPos + 10 && buttonManager.isVisible()) {
-      tracker.clearPosition();
-      buttonManager.hide();
+    if (savedPos !== null) {
+      if (!buttonManager.isVisible()) {
+        log(`Position saved at ${savedPos}. Showing button.`);
+        buttonManager.show();
+      }
+    } else {
+      if (buttonManager.isVisible()) {
+        log("No position saved. Hiding button.");
+        buttonManager.hide();
+      }
     }
   });
 
-  if (!scrollListenerAttached) {
-    scrollRoot.addEventListener("scroll", onScroll, { passive: true });
-    scrollListenerAttached = true;
-    cleanups.push(() => {
-      scrollRoot.removeEventListener("scroll", onScroll);
-      scrollListenerAttached = false;
-    });
-  }
+  window.addEventListener("scroll", handleScroll, { capture: true, passive: true });
+  cleanups.push(() => window.removeEventListener("scroll", handleScroll, { capture: true }));
 }
 
 /**
  * Cleans up all listeners and removes the button from the DOM.
  */
-function teardown(): void {
+function teardown(clearPosition = true): void {
+  log("Teardown called, clearPosition:", clearPosition);
   for (const fn of cleanups) fn();
   cleanups = [];
   buttonManager.destroy();
-  tracker.clearPosition();
-  scrollListenerAttached = false;
+  if (clearPosition) {
+    tracker.clearPosition();
+  }
 }
 
 // ── Bootstrap ──────────────────────────────────────────────────────
 
 async function bootstrap(): Promise<void> {
-  const scrollRoot = await waitForElement(SCROLL_ROOT_SELECTOR);
-  initForContainer(scrollRoot);
+  log("Bootstrap started");
+  
+  // Find the scroll root that is actually scrollable and contains the chat
+  const findActiveScrollRoot = (): HTMLElement | null => {
+    const roots = Array.from(document.querySelectorAll<HTMLElement>("[data-scroll-root]"));
+    log(`Found ${roots.length} total potential scroll roots`);
+    
+    for (const r of roots) {
+      const hasTurns = r.querySelector('[data-turn-id]') !== null;
+      const isVisible = r.offsetHeight > 0;
+      log(`Candidate: turns=${hasTurns} vis=${isVisible} sh=${r.scrollHeight} ch=${r.clientHeight} class=${r.className.slice(0, 50)}...`);
+      
+      // The main chat container should contain turns and be visible
+      if (hasTurns && isVisible) return r;
+    }
+    
+    // Fallback to the one inside <main>
+    return document.querySelector<HTMLElement>(SCROLL_ROOT_SELECTOR) || roots[0] || null;
+  };
+
+  let scrollRoot = findActiveScrollRoot();
+  if (!scrollRoot) {
+    log("Waiting for scrollRoot...");
+    scrollRoot = await waitForElement(SCROLL_ROOT_SELECTOR);
+  }
+  
+  if (scrollRoot) {
+    log("scrollRoot selected:", scrollRoot.tagName, {
+      id: scrollRoot.id,
+      sh: scrollRoot.scrollHeight,
+      ch: scrollRoot.clientHeight
+    });
+    initForContainer(scrollRoot);
+  }
 
   // Re-initialise on SPA navigation
-  const cleanupUrlWatcher = onUrlChange(async () => {
-    teardown();
+  const cleanupUrlWatcher = onUrlChange(async (newPath) => {
+    log("URL change detected:", newPath);
+    // When starting a new thread, the URL changes from / to /c/ID.
+    // We want to preserve the saved scroll position across this specific transition.
+    const isNewThreadTransition = tracker.hasSavedPosition();
+    teardown(!isNewThreadTransition /* clear only if not in a conversation transition */);
     const newRoot = await waitForElement(SCROLL_ROOT_SELECTOR);
+    log("New scrollRoot found after navigation:", newRoot);
     initForContainer(newRoot);
   });
   cleanups.push(cleanupUrlWatcher);

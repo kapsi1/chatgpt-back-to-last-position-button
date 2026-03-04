@@ -3,13 +3,18 @@
  * If the element already exists, resolves immediately.
  */
 export function waitForElement(selector: string): Promise<HTMLElement> {
+  console.log("[CGPT-BTP] waitForElement searching for:", selector);
   const existing = document.querySelector<HTMLElement>(selector);
-  if (existing) return Promise.resolve(existing);
+  if (existing) {
+    console.log("[CGPT-BTP] waitForElement found existing:", selector);
+    return Promise.resolve(existing);
+  }
 
   return new Promise((resolve) => {
     const observer = new MutationObserver(() => {
       const el = document.querySelector<HTMLElement>(selector);
       if (el) {
+        console.log("[CGPT-BTP] MutationObserver found element:", selector);
         observer.disconnect();
         resolve(el);
       }

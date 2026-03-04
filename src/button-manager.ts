@@ -24,6 +24,7 @@ export class ButtonManager {
     scrollContainer: HTMLElement,
     onScrollBack: () => void,
   ): void {
+    console.log("[CGPT-BTP] ButtonManager.inject into", scrollContainer);
     this.scrollContainer = scrollContainer;
     this.onScrollBack = onScrollBack;
 
@@ -36,22 +37,36 @@ export class ButtonManager {
     }
 
     // The button needs to be inside the scroll-root to participate in its
-    // positioning context (it uses position:absolute + top).
+    // positioning context. We prepend it so it starts at the top of the content flow,
+    // which helps with 'position: sticky'.
     if (!scrollContainer.contains(this.button)) {
-      // Ensure positioning context
-      const pos = getComputedStyle(scrollContainer).position;
-      if (pos === "static") {
-        scrollContainer.style.position = "relative";
-      }
-      scrollContainer.appendChild(this.button);
+      console.log("[CGPT-BTP] Prepending button to scroll container", {
+        tag: scrollContainer.tagName,
+        sh: scrollContainer.scrollHeight
+      });
+      scrollContainer.prepend(this.button);
     }
   }
 
+  isAttached(): boolean {
+    return (
+      this.button !== null &&
+      this.scrollContainer !== null &&
+      this.scrollContainer.contains(this.button)
+    );
+  }
+
+  getContainer(): HTMLElement | null {
+    return this.scrollContainer;
+  }
+
   show(): void {
+    console.log("[CGPT-BTP] ButtonManager.show");
     this.button?.classList.add("cgpt-btp-btn--visible");
   }
 
   hide(): void {
+    console.log("[CGPT-BTP] ButtonManager.hide");
     this.button?.classList.remove("cgpt-btp-btn--visible");
   }
 
@@ -86,7 +101,11 @@ export class ButtonManager {
    * Scroll to a specific position and hide the button afterwards.
    */
   scrollTo(targetScrollTop: number): void {
-    if (!this.scrollContainer) return;
+    if (!this.scrollContainer) {
+      console.log("[CGPT-BTP] scrollTo: No scroll container!");
+      return;
+    }
+    console.log("[CGPT-BTP] scrollTo:", targetScrollTop);
     scrollToPosition(this.scrollContainer, targetScrollTop);
     this.hide();
   }

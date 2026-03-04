@@ -159,8 +159,11 @@ When a user sends a message on ChatGPT, the chat auto-scrolls to the bottom to s
     2. Instantiates `ScrollTracker` with the container.
     3. Instantiates `ButtonManager` and injects the button into the DOM at the correct position.
     4. Attaches event listeners for send-message detection (keyboard + click).
-    5. Attaches a `scroll` event listener on the container to update button visibility (debounce/throttle this for performance — e.g., with `requestAnimationFrame` or a 100ms throttle).
-    6. Sets up conversation-switch detection to teardown and re-initialize.
+    5. Attaches a `scroll` event listener on the container to update button visibility.
+    6. Sets up conversation-switch detection and dynamic button re-injection.
+  - [x] **5.4 Robustify for dynamic DOM**
+    - [x] Handle React DOM replacements via MutationObservers.
+    - [x] Prevent false bottom detection on zero-dimension elements.
   - Import `styles.css` in this file (Vite will handle injecting it into the page via the content script).
 
 ---
