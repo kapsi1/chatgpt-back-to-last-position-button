@@ -9,9 +9,10 @@
   /* Reset */
   all: unset;
   /* Match native scroll-to-bottom button dimensions & shape */
-  position: sticky;
-  z-index: 10000; /* Extremely high to stay on top */
-  top: 72px; /* Fixed offset from top of viewport */
+  position: fixed;
+  z-index: 2147483647;
+  top: 72px;
+  transform: translateX(-50%);
   width: 32px;
   height: 32px;
   border-radius: 9999px;
@@ -20,9 +21,8 @@
   align-items: center;
   justify-content: center;
 
-  /* Centering in flex-column container */
-  align-self: center;
-  margin-bottom: -32px; /* Prevent taking up layout space in the message flow */
+  /* Prevent taking up layout space */
+  pointer-events: none;
 
   /* Colours — using ChatGPT's own design tokens */
   background-color: var(--bg-primary, #ffffff);
@@ -33,7 +33,6 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 
   opacity: 0;
-  pointer-events: none;
   transition:
     opacity 0.2s ease,
     transform 0.2s ease;

@@ -7,9 +7,9 @@ const WAIT_TIMEOUT_MS = 30_000;
  * If the element already exists, resolves immediately.
  * Rejects after `WAIT_TIMEOUT_MS` to prevent leaked observers.
  */
-export function waitForElement(selector: string): Promise<HTMLElement> {
-  log("waitForElement searching for:", selector);
-  const existing = document.querySelector<HTMLElement>(selector);
+export function waitForElement(selector: string, root: ParentNode = document.body): Promise<HTMLElement> {
+  log("waitForElement searching for:", selector, "in", root);
+  const existing = (root as HTMLElement | Document).querySelector<HTMLElement>(selector);
   if (existing) {
     log("waitForElement found existing:", selector);
     return Promise.resolve(existing);
@@ -17,7 +17,7 @@ export function waitForElement(selector: string): Promise<HTMLElement> {
 
   return new Promise((resolve, reject) => {
     const observer = new MutationObserver(() => {
-      const el = document.querySelector<HTMLElement>(selector);
+      const el = (root as HTMLElement | Document).querySelector<HTMLElement>(selector);
       if (el) {
         log("MutationObserver found element:", selector);
         clearTimeout(timer);
@@ -31,7 +31,7 @@ export function waitForElement(selector: string): Promise<HTMLElement> {
       reject(new Error(`waitForElement("${selector}") timed out after ${WAIT_TIMEOUT_MS}ms`));
     }, WAIT_TIMEOUT_MS);
 
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(root, { childList: true, subtree: true });
   });
 }
 
@@ -65,7 +65,7 @@ export function onUrlChange(callback: (newPath: string) => void): () => void {
   window.addEventListener("popstate", check);
   
   // Also poll as a fallback (some frameworks bypass pushState or use it in ways that break simple wrappers)
-  const pollTimer = setInterval(check, 500);
+  const pollTimer = setInterval(check, 2000);
 
   return () => {
     history.pushState = origPushState;

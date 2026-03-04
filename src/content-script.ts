@@ -14,23 +14,24 @@ import "./styles.css";
 import { ScrollTracker } from "./scroll-tracker";
 import { ButtonManager } from "./button-manager";
 import { waitForElement, onUrlChange } from "./dom-observer";
-
 import { log } from "./logger";
 
 // ── Selectors (derived from ChatGPT's DOM) ─────────────────────────
 // The main scrollable area for chat messages.  ChatGPT usually has
 // several [data-scroll-root] elements (sidebar, main chat, etc.),
 // but the main one is inside the <main> element.
-const SCROLL_ROOT_SELECTOR = "main [data-scroll-root]";
-const COMPOSER_FORM_SELECTOR = 'form[data-type="unified-composer"]';
-const PROMPT_TEXTAREA_SELECTOR = "#prompt-textarea";
+const SCROLL_ROOT_SELECTOR = "main [data-scroll-root], [data-scroll-root]";
+
+const PROMPT_TEXTAREA_SELECTOR = "#prompt-textarea, [contenteditable='true'], textarea";
 const SEND_BUTTON_SELECTOR =
-  'button[data-testid="send-button"], button.composer-submit-button-color';
+  'button[data-testid="send-button"], button.composer-submit-button-color, button[aria-label*="send" i]';
 
 // ── State ──────────────────────────────────────────────────────────
 const tracker = new ScrollTracker();
 const buttonManager = new ButtonManager();
 let cleanups: (() => void)[] = [];
+let cachedScrollRoot: HTMLElement | null = null;
+let navigationInProgress = false;
 
 // ── Helpers ────────────────────────────────────────────────────────
 
@@ -53,10 +54,14 @@ function rafThrottle(fn: () => void): () => void {
  * the first `[data-scroll-root]` inside `<main>`.
  */
 function findLiveScrollRoot(): HTMLElement | null {
+  if (cachedScrollRoot?.isConnected && cachedScrollRoot.offsetHeight > 0) {
+    return cachedScrollRoot;
+  }
+
   const roots = Array.from(
     document.querySelectorAll<HTMLElement>("[data-scroll-root]"),
   );
-  return (
+  const found = (
     roots.find(
       (r) => r.querySelector("[data-turn-id]") && r.offsetHeight > 0,
     ) ??
@@ -64,151 +69,129 @@ function findLiveScrollRoot(): HTMLElement | null {
     roots[0] ??
     null
   );
+
+  if (found) {
+    cachedScrollRoot = found;
+  }
+  return found;
 }
 
 /** Shared callback wired to the "scroll back" button. */
 function scrollBack(): void {
   const pos = tracker.getSavedPosition();
-  log("scrollBack, saved position:", pos);
+  log("scrollBack clicked, saved position:", pos);
   if (pos !== null) {
     buttonManager.scrollTo(pos);
     tracker.clearPosition();
   }
 }
 
+function onBeforeSend(): void {
+  log("onBeforeSend - detected user message submission");
+  const liveRoot = findLiveScrollRoot();
+  if (liveRoot) {
+    tracker.savePosition(liveRoot);
+  } else {
+    log("ERROR: No scroll root found during send! document.body scrollHeight:", document.body.scrollHeight);
+  }
+}
+
+// ── Global Event Delegation ────────────────────────────────────────
+
 /**
- * Main initialisation for a given scroll-root element.
- * Attaches all event listeners and the button.
+ * Setup global listeners to catch "send" events regardless of React leaf churn.
+ * We use the capture phase to try and beat ChatGPT's own stopPropagation.
  */
+function setupGlobalListeners(): void {
+  log("Setting up global delegation listeners");
+  
+  const keyHandler = (e: KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      const target = e.target as HTMLElement;
+      if (target?.matches?.(PROMPT_TEXTAREA_SELECTOR) || target?.closest?.(PROMPT_TEXTAREA_SELECTOR)) {
+        log("Global Enter detected on prompt element");
+        onBeforeSend();
+      }
+    }
+  };
+
+  const mouseHandler = (e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const btn = target?.closest?.("button");
+    if (btn) {
+      const label = btn.getAttribute("aria-label")?.toLowerCase() || "";
+      const testid = btn.dataset.testid || "";
+      const isSend = btn.matches(SEND_BUTTON_SELECTOR) || 
+                     label.includes("send") || 
+                     testid === "send-button";
+      
+      if (isSend) {
+        log("Global Send button click detected", { label, testid });
+        onBeforeSend();
+      }
+    }
+  };
+
+  window.addEventListener("keydown", keyHandler, { capture: true, passive: true });
+  window.addEventListener("mousedown", mouseHandler, { capture: true, passive: true });
+}
+
 function initForContainer(scrollRoot: HTMLElement): void {
-  log("initForContainer", scrollRoot);
+  log("initForContainer initializing for root", scrollRoot);
   // Manual cleanups here because we want to preserve tracker/buttonManager state
   for (const fn of cleanups) fn();
   cleanups = [];
 
-  // Inject the button into the scroll container
-  buttonManager.inject(scrollRoot, scrollBack);
-
-  // ── Listen for "send message" ──────────────────────────────────
-  const attachSendListeners = () => {
-    const form = document.querySelector<HTMLFormElement>(COMPOSER_FORM_SELECTOR);
-    const textarea = document.querySelector<HTMLElement>(
-      PROMPT_TEXTAREA_SELECTOR,
-    );
-
-    const onBeforeSend = () => {
-      log("onBeforeSend - user submitted message");
-      const liveRoot = findLiveScrollRoot();
-      if (liveRoot) {
-        tracker.savePosition(liveRoot);
-      } else {
-        log("ERROR: No scroll root found during send!");
-      }
-    };
-
-    // Capture Enter key (without Shift) on the prompt textarea
-    if (textarea) {
-      log("Attaching Enter key listener to textarea");
-      const handler = (e: Event) => {
-        const ke = e as KeyboardEvent;
-        if (ke.key === "Enter" && !ke.shiftKey) {
-          log("Enter key detected");
-          onBeforeSend();
-        }
-      };
-      textarea.addEventListener("keydown", handler, { capture: true });
-      cleanups.push(() =>
-        textarea.removeEventListener("keydown", handler, { capture: true }),
-      );
-    }
-
-    // Capture mousedown on the send button
-    if (form) {
-      log("Attaching mousedown listener to composer form");
-      const handler = (e: Event) => {
-        const target = e.target as HTMLElement | null;
-        const btn = target?.closest("button");
-        if (btn) {
-          log("Button mousedown in form:", btn.getAttribute("aria-label") || btn.dataset.testid || "unknown button");
-          
-          if (btn.closest(SEND_BUTTON_SELECTOR) || 
-              btn.getAttribute("aria-label")?.toLowerCase().includes("send") ||
-              btn.dataset.testid === "send-button") {
-            log("Send button detection triggered (mousedown)");
-            
-            const liveRoot = findLiveScrollRoot();
-            if (liveRoot) {
-              tracker.savePosition(liveRoot);
-            } else {
-              log("ERROR: No scroll root found during send!");
-            }
-          }
-        }
-      };
-      // Use mousedown to beat most other listeners
-      form.addEventListener("mousedown", handler, { capture: true });
-      cleanups.push(() =>
-        form.removeEventListener("mousedown", handler, { capture: true }),
-      );
-    }
-  };
-
-  attachSendListeners();
-
-  const composerObserver = new MutationObserver(() => {
-    const form = document.querySelector<HTMLFormElement>(COMPOSER_FORM_SELECTOR);
-    if (form && !form.dataset.btpListenersAttached) {
-      log("Composer form refreshed - re-attaching listeners");
-      form.dataset.btpListenersAttached = "1";
-      attachSendListeners();
-    }
-  });
-  composerObserver.observe(document.body, { childList: true, subtree: true });
-  cleanups.push(() => composerObserver.disconnect());
-
-  // ── Watch for button removal (if React replaces innerHTML) ───────
-  const rootObserver = new MutationObserver(() => {
-    if (!buttonManager.isAttached()) {
-      log("Button removed from scrollRoot - re-injecting");
-      buttonManager.inject(scrollRoot, scrollBack);
-    }
-  });
-  rootObserver.observe(scrollRoot, { childList: true });
-  cleanups.push(() => rootObserver.disconnect());
+  // Inject the button globally into the body.
+  // We'll use fixed positioning to keep it visible over the chat.
+  buttonManager.inject(document.body, scrollRoot, scrollBack);
 
   // ── Scroll listener — show / hide button ───────────────────────
   // We use a global listener because ChatGPT swaps the scroll container frequently.
+  let lastSavedPos: number | null = null;
+  let lastVisibility: boolean = false;
+
   const handleScroll = rafThrottle(() => {
     if (navigationInProgress) return;
     
-    log("handleScroll heartbeat");
     const liveRoot = findLiveScrollRoot();
     if (!liveRoot) return;
 
-    // Ensure button is in the live root
-    if (!buttonManager.isAttached() || buttonManager.getContainer() !== liveRoot) {
-      log("Ensuring button is attached to live root");
-      buttonManager.inject(liveRoot, scrollBack);
+    // Ensure button is ready
+    if (!buttonManager.isAttached()) {
+      log("Ensuring button is attached to body");
+      buttonManager.inject(document.body, liveRoot, scrollBack);
+    }
+
+    // Update center position dynamically (sidebar toggle handling)
+    const mainEl = document.querySelector("main") as HTMLElement;
+    if (mainEl) {
+      buttonManager.updatePosition(mainEl);
     }
 
     const savedPos = tracker.getSavedPosition();
-    if (savedPos !== null) {
-      if (!buttonManager.isVisible()) {
-        log(`Position saved at ${savedPos}. Showing button.`);
-        buttonManager.show();
+    const isVisible = buttonManager.isVisible();
+
+    if (savedPos !== lastSavedPos || isVisible !== lastVisibility) {
+      if (savedPos !== null) {
+        if (!isVisible) {
+          log(`Position saved at ${savedPos}. Showing button.`);
+          buttonManager.show();
+        }
+      } else {
+        if (isVisible) {
+          log("No position saved. Hiding button.");
+          buttonManager.hide();
+        }
       }
-    } else {
-      if (buttonManager.isVisible()) {
-        log("No position saved. Hiding button.");
-        buttonManager.hide();
-      }
+      lastSavedPos = savedPos;
+      lastVisibility = buttonManager.isVisible();
     }
   });
 
   window.addEventListener("scroll", handleScroll, { capture: true, passive: true });
   cleanups.push(() => window.removeEventListener("scroll", handleScroll, { capture: true }));
 }
-
 /**
  * Cleans up all listeners and removes the button from the DOM.
  */
@@ -217,6 +200,7 @@ function teardown(clearPosition = true): void {
   for (const fn of cleanups) fn();
   cleanups = [];
   buttonManager.destroy();
+  cachedScrollRoot = null;
   if (clearPosition) {
     tracker.clearPosition();
   }
@@ -224,15 +208,14 @@ function teardown(clearPosition = true): void {
 
 // ── Bootstrap ──────────────────────────────────────────────────────
 
-let navigationInProgress = false;
-
 async function bootstrap(): Promise<void> {
   log("Bootstrap started");
+  setupGlobalListeners();
 
   const startForCurrentPage = async () => {
     const scrollRoot = findLiveScrollRoot() || await waitForElement(SCROLL_ROOT_SELECTOR);
     if (scrollRoot) {
-      log("scrollRoot selected, initializing:", scrollRoot.tagName);
+      log("Bootstrap: scrollRoot found, initializing:", scrollRoot.tagName);
       initForContainer(scrollRoot);
     }
   };
@@ -254,9 +237,16 @@ async function bootstrap(): Promise<void> {
     teardown(true);
     
     try {
-      const newRoot = await waitForElement(SCROLL_ROOT_SELECTOR);
-      log("New scrollRoot found after navigation:", newRoot);
-      initForContainer(newRoot);
+      const mainEl = document.querySelector("main");
+      // Wait for ANY scroll root to appear, then we will use findLiveScrollRoot to find the message container
+      await waitForElement("[data-scroll-root]", mainEl || document.body);
+      const newRoot = findLiveScrollRoot();
+      log("Live scrollRoot found after navigation:", newRoot);
+      if (newRoot) {
+        initForContainer(newRoot);
+      } else {
+        log("Navigation: No live scroll root after waiting.");
+      }
     } catch {
       log("Navigation: new scroll root not found or timed out.");
     } finally {

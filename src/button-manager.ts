@@ -34,7 +34,8 @@ function createUpArrowSvg(): SVGSVGElement {
 
 export class ButtonManager {
   private button: HTMLButtonElement | null = null;
-  private scrollContainer: HTMLElement | null = null;
+  private injectionParent: HTMLElement | null = null;
+  private scrollTarget: HTMLElement | null = null;
   private onScrollBack: (() => void) | null = null;
 
   /**
@@ -42,11 +43,13 @@ export class ButtonManager {
    * scroll container, and wires the click handler.
    */
   inject(
-    scrollContainer: HTMLElement,
+    injectionParent: HTMLElement,
+    scrollTarget: HTMLElement,
     onScrollBack: () => void,
   ): void {
-    log("ButtonManager.inject into", scrollContainer);
-    this.scrollContainer = scrollContainer;
+    log("ButtonManager.inject into parent:", injectionParent, "for scrollTarget:", scrollTarget);
+    this.injectionParent = injectionParent;
+    this.scrollTarget = scrollTarget;
     this.onScrollBack = onScrollBack;
 
     if (!this.button) {
@@ -57,28 +60,26 @@ export class ButtonManager {
       this.button.addEventListener("click", this.handleClick);
     }
 
-    // The button needs to be inside the scroll-root to participate in its
-    // positioning context. We prepend it so it starts at the top of the content flow,
-    // which helps with 'position: sticky'.
-    if (!scrollContainer.contains(this.button)) {
-      log("Prepending button to scroll container", {
-        tag: scrollContainer.tagName,
-        sh: scrollContainer.scrollHeight
+    // The button needs to be in a stable parent to avoid React hydration issues.
+    if (!injectionParent.contains(this.button)) {
+      log("Prepending button to injection parent", {
+        tag: injectionParent.tagName,
+        sh: injectionParent.scrollHeight
       });
-      scrollContainer.prepend(this.button);
+      injectionParent.prepend(this.button);
     }
   }
 
   isAttached(): boolean {
     return (
       this.button !== null &&
-      this.scrollContainer !== null &&
-      this.scrollContainer.contains(this.button)
+      this.injectionParent !== null &&
+      this.injectionParent.contains(this.button)
     );
   }
 
   getContainer(): HTMLElement | null {
-    return this.scrollContainer;
+    return this.injectionParent;
   }
 
   show(): void {
@@ -101,7 +102,8 @@ export class ButtonManager {
   destroy(): void {
     this.button?.remove();
     this.button = null;
-    this.scrollContainer = null;
+    this.injectionParent = null;
+    this.scrollTarget = null;
     this.onScrollBack = null;
   }
 
@@ -122,12 +124,25 @@ export class ButtonManager {
    * Scroll to a specific position and hide the button afterwards.
    */
   scrollTo(targetScrollTop: number): void {
-    if (!this.scrollContainer) {
-      log("scrollTo: No scroll container!");
+    if (!this.scrollTarget) {
+      log("scrollTo: No scroll target!");
       return;
     }
-    log("scrollTo:", targetScrollTop);
-    scrollToPosition(this.scrollContainer, targetScrollTop);
+    log("scrollTo:", targetScrollTop, "on target:", this.scrollTarget);
+    scrollToPosition(this.scrollTarget, targetScrollTop);
     this.hide();
+  }
+
+  /**
+   * Updates the button's horizontal position to be centered relative to the target element.
+   * Useful when the target (like the chat thread) is offset by a sidebar.
+   */
+  updatePosition(targetElement: HTMLElement): void {
+    if (!this.button) return;
+    const rect = targetElement.getBoundingClientRect();
+    if (rect.width === 0) return;
+    
+    const centerX = rect.left + rect.width / 2;
+    this.button.style.left = `${centerX}px`;
   }
 }
