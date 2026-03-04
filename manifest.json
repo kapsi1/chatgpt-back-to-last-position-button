@@ -12,10 +12,8 @@
     {
       "matches": ["https://chatgpt.com/*"],
       "js": ["content-script.js"],
+      "css": ["content-script.css"],
       "run_at": "document_idle"
     }
-  ],
-  "background": {
-    "service_worker": "background.js"
-  }
+  ]
 }

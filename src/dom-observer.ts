@@ -1,7 +1,11 @@
 import { log } from "./logger";
+
+const WAIT_TIMEOUT_MS = 30_000;
+
 /**
  * Resolves when an element matching `selector` appears in the DOM.
  * If the element already exists, resolves immediately.
+ * Rejects after `WAIT_TIMEOUT_MS` to prevent leaked observers.
  */
 export function waitForElement(selector: string): Promise<HTMLElement> {
   log("waitForElement searching for:", selector);
@@ -11,40 +15,24 @@ export function waitForElement(selector: string): Promise<HTMLElement> {
     return Promise.resolve(existing);
   }
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const observer = new MutationObserver(() => {
       const el = document.querySelector<HTMLElement>(selector);
       if (el) {
         log("MutationObserver found element:", selector);
+        clearTimeout(timer);
         observer.disconnect();
         resolve(el);
       }
     });
+
+    const timer = setTimeout(() => {
+      observer.disconnect();
+      reject(new Error(`waitForElement("${selector}") timed out after ${WAIT_TIMEOUT_MS}ms`));
+    }, WAIT_TIMEOUT_MS);
+
     observer.observe(document.body, { childList: true, subtree: true });
   });
-}
-
-/**
- * Calls `callback` whenever a NEW element matching `selector` appears in the
- * DOM (e.g. after a SPA page navigation). Returns a cleanup function.
- */
-export function onElementAppear(
-  selector: string,
-  callback: (el: HTMLElement) => void,
-): () => void {
-  let current = document.querySelector<HTMLElement>(selector);
-  if (current) callback(current);
-
-  const observer = new MutationObserver(() => {
-    const el = document.querySelector<HTMLElement>(selector);
-    if (el && el !== current) {
-      current = el;
-      callback(el);
-    }
-  });
-
-  observer.observe(document.body, { childList: true, subtree: true });
-  return () => observer.disconnect();
 }
 
 /**

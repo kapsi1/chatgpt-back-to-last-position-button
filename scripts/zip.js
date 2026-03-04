@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -23,11 +23,11 @@ try {
   // Get all files and folders in dist/ to archive them individually
   // This avoids including the "." folder entry in the zip file
   const files = readdirSync(outputDir);
-  const filesList = files.map(f => `"${f}"`).join(' ');
 
-  execSync(`tar -a -cf ../${zipFileName} ${filesList}`, { 
-    cwd: outputDir, 
-    stdio: 'inherit' 
+  // Use execFileSync with an args array to avoid shell injection
+  execFileSync('tar', ['-a', '-cf', `../${zipFileName}`, ...files], {
+    cwd: outputDir,
+    stdio: 'inherit',
   });
   console.log(`✅ Successfully created ${zipFileName}`);
 } catch (error) {

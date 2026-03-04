@@ -48,6 +48,35 @@ function rafThrottle(fn: () => void): () => void {
 }
 
 /**
+ * Finds the scroll-root that actually contains the conversation messages.
+ * Prefers a visible root with `[data-turn-id]` children; falls back to
+ * the first `[data-scroll-root]` inside `<main>`.
+ */
+function findLiveScrollRoot(): HTMLElement | null {
+  const roots = Array.from(
+    document.querySelectorAll<HTMLElement>("[data-scroll-root]"),
+  );
+  return (
+    roots.find(
+      (r) => r.querySelector("[data-turn-id]") && r.offsetHeight > 0,
+    ) ??
+    document.querySelector<HTMLElement>(SCROLL_ROOT_SELECTOR) ??
+    roots[0] ??
+    null
+  );
+}
+
+/** Shared callback wired to the "scroll back" button. */
+function scrollBack(): void {
+  const pos = tracker.getSavedPosition();
+  log("scrollBack, saved position:", pos);
+  if (pos !== null) {
+    buttonManager.scrollTo(pos);
+    tracker.clearPosition();
+  }
+}
+
+/**
  * Main initialisation for a given scroll-root element.
  * Attaches all event listeners and the button.
  */
@@ -58,14 +87,7 @@ function initForContainer(scrollRoot: HTMLElement): void {
   cleanups = [];
 
   // Inject the button into the scroll container
-  buttonManager.inject(scrollRoot, () => {
-    const pos = tracker.getSavedPosition();
-    log("Button clicked, saved position:", pos);
-    if (pos !== null) {
-      buttonManager.scrollTo(pos);
-      tracker.clearPosition();
-    }
-  });
+  buttonManager.inject(scrollRoot, scrollBack);
 
   // ── Listen for "send message" ──────────────────────────────────
   const attachSendListeners = () => {
@@ -75,14 +97,12 @@ function initForContainer(scrollRoot: HTMLElement): void {
     );
 
     const onBeforeSend = () => {
-      log("onBeforeSend - user submitted message (via fallback/Enter)");
-      const roots = Array.from(document.querySelectorAll<HTMLElement>("[data-scroll-root]"));
-      const liveRoot = roots.find(r => r.querySelector('[data-turn-id]') && r.offsetHeight > 0) || roots[0];
-      
+      log("onBeforeSend - user submitted message");
+      const liveRoot = findLiveScrollRoot();
       if (liveRoot) {
         tracker.savePosition(liveRoot);
       } else {
-        log("ERROR: No scroll root found during Enter key!");
+        log("ERROR: No scroll root found during send!");
       }
     };
 
@@ -116,10 +136,7 @@ function initForContainer(scrollRoot: HTMLElement): void {
               btn.dataset.testid === "send-button") {
             log("Send button detection triggered (mousedown)");
             
-            // Re-identify the correct scroll root that holds the messages
-            const roots = Array.from(document.querySelectorAll<HTMLElement>("[data-scroll-root]"));
-            const liveRoot = roots.find(r => r.querySelector('[data-turn-id]') && r.offsetHeight > 0) || roots[0];
-            
+            const liveRoot = findLiveScrollRoot();
             if (liveRoot) {
               tracker.savePosition(liveRoot);
             } else {
@@ -153,13 +170,7 @@ function initForContainer(scrollRoot: HTMLElement): void {
   const rootObserver = new MutationObserver(() => {
     if (!buttonManager.isAttached()) {
       log("Button removed from scrollRoot - re-injecting");
-      buttonManager.inject(scrollRoot, () => {
-        const pos = tracker.getSavedPosition();
-        if (pos !== null) {
-          buttonManager.scrollTo(pos);
-          tracker.clearPosition();
-        }
-      });
+      buttonManager.inject(scrollRoot, scrollBack);
     }
   });
   rootObserver.observe(scrollRoot, { childList: true });
@@ -169,22 +180,13 @@ function initForContainer(scrollRoot: HTMLElement): void {
   // We use a global listener because ChatGPT swaps the scroll container frequently.
   const handleScroll = rafThrottle(() => {
     log("handleScroll heartbeat");
-    // Re-acquire the live conversation root
-    const roots = Array.from(document.querySelectorAll<HTMLElement>("[data-scroll-root]"));
-    const liveRoot = roots.find(r => r.querySelector('[data-turn-id]') && r.offsetHeight > 0) || roots[0];
-
+    const liveRoot = findLiveScrollRoot();
     if (!liveRoot) return;
 
     // Ensure button is in the live root
     if (!buttonManager.isAttached() || buttonManager.getContainer() !== liveRoot) {
       log("Ensuring button is attached to live root");
-      buttonManager.inject(liveRoot, () => {
-        const pos = tracker.getSavedPosition();
-        if (pos !== null) {
-          buttonManager.scrollTo(pos);
-          tracker.clearPosition();
-        }
-      });
+      buttonManager.inject(liveRoot, scrollBack);
     }
 
     const savedPos = tracker.getSavedPosition();
@@ -222,26 +224,8 @@ function teardown(clearPosition = true): void {
 
 async function bootstrap(): Promise<void> {
   log("Bootstrap started");
-  
-  // Find the scroll root that is actually scrollable and contains the chat
-  const findActiveScrollRoot = (): HTMLElement | null => {
-    const roots = Array.from(document.querySelectorAll<HTMLElement>("[data-scroll-root]"));
-    log(`Found ${roots.length} total potential scroll roots`);
-    
-    for (const r of roots) {
-      const hasTurns = r.querySelector('[data-turn-id]') !== null;
-      const isVisible = r.offsetHeight > 0;
-      log(`Candidate: turns=${hasTurns} vis=${isVisible} sh=${r.scrollHeight} ch=${r.clientHeight} class=${r.className.slice(0, 50)}...`);
-      
-      // The main chat container should contain turns and be visible
-      if (hasTurns && isVisible) return r;
-    }
-    
-    // Fallback to the one inside <main>
-    return document.querySelector<HTMLElement>(SCROLL_ROOT_SELECTOR) || roots[0] || null;
-  };
 
-  let scrollRoot = findActiveScrollRoot();
+  let scrollRoot = findLiveScrollRoot();
   if (!scrollRoot) {
     log("Waiting for scrollRoot...");
     scrollRoot = await waitForElement(SCROLL_ROOT_SELECTOR);

@@ -33,13 +33,17 @@ export class ScrollTracker {
    * original reading position across rapid message sends).
    */
   savePosition(container: HTMLElement): void {
+    if (this.savedScrollTop !== null) {
+      log("savePosition: position already saved, keeping", this.savedScrollTop);
+      return;
+    }
     const atBottom = isScrolledToBottom(container);
     if (atBottom) {
       log("savePosition: container at the bottom, skipping");
-      return; 
+      return;
     }
     this.savedScrollTop = container.scrollTop;
-    log("savePosition: saved/updated to", this.savedScrollTop);
+    log("savePosition: saved to", this.savedScrollTop);
   }
 
   getSavedPosition(): number | null {

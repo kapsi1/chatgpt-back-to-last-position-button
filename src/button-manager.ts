@@ -1,11 +1,36 @@
 import { scrollToPosition } from "./scroll-tracker";
 import { log } from "./logger";
 
+const SVG_NS = "http://www.w3.org/2000/svg";
+
 /**
- * Up-arrow SVG icon — same viewBox and sizing as ChatGPT's native
- * down-arrow icon, but pointing upward.
+ * Builds the up-arrow SVG icon via DOM APIs (avoids innerHTML).
+ * Same viewBox and sizing as ChatGPT's native down-arrow icon, but pointing upward.
  */
-const UP_ARROW_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>`;
+function createUpArrowSvg(): SVGSVGElement {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("width", "20");
+  svg.setAttribute("height", "20");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+
+  const line = document.createElementNS(SVG_NS, "line");
+  line.setAttribute("x1", "12");
+  line.setAttribute("y1", "19");
+  line.setAttribute("x2", "12");
+  line.setAttribute("y2", "5");
+  svg.appendChild(line);
+
+  const polyline = document.createElementNS(SVG_NS, "polyline");
+  polyline.setAttribute("points", "5 12 12 5 19 12");
+  svg.appendChild(polyline);
+
+  return svg;
+}
 
 export class ButtonManager {
   private button: HTMLButtonElement | null = null;
@@ -14,12 +39,7 @@ export class ButtonManager {
 
   /**
    * Creates (or re-uses) the button element, injects it into the given
-   * `anchor` element, and wires the click handler.
-   *
-   * @param anchor   The element the button will be appended to (should be
-   *                 the `[data-scroll-root]` container so it scrolls with it).
-   * @param onScrollBack  Called after scrolling back so the caller can clean
-   *                      up the saved position.
+   * scroll container, and wires the click handler.
    */
   inject(
     scrollContainer: HTMLElement,
@@ -33,7 +53,7 @@ export class ButtonManager {
       this.button = document.createElement("button");
       this.button.className = "cgpt-btp-btn";
       this.button.setAttribute("aria-label", "Scroll to last reading position");
-      this.button.innerHTML = UP_ARROW_SVG;
+      this.button.appendChild(createUpArrowSvg());
       this.button.addEventListener("click", this.handleClick);
     }
 
