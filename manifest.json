@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "ChatGPT – Back to Last Position",
+  "version": "0.1.0",
+  "description": "Adds a button to scroll back to your reading position after ChatGPT auto-scrolls to a new response.",
+  "icons": {
+    "16": "public/icons/icon-16.png",
+    "48": "public/icons/icon-48.png",
+    "128": "public/icons/icon-128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://chatgpt.com/*"],
+      "js": ["src/content-script.ts"],
+      "run_at": "document_idle"
+    }
+  ]
+}
