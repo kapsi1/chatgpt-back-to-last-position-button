@@ -1,4 +1,4 @@
-const DEBUG = true;
+const DEBUG = false;
 const LOG_PREFIX = "[CGPT-BTP]";
 
 export function log(...args: unknown[]): void {

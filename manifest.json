@@ -1,19 +1,21 @@
 {
-  "manifest_version": 3,
-  "name": "ChatGPT – Back to Last Position",
-  "version": "1.0.0",
-  "description": "Adds a button to scroll back to your reading position after ChatGPT auto-scrolls to a new response.",
-  "icons": {
-    "16": "icons/icon-16.png",
-    "48": "icons/icon-48.png",
-    "128": "icons/icon-128.png"
-  },
-  "content_scripts": [
-    {
-      "matches": ["https://chatgpt.com/*"],
-      "js": ["content-script.js"],
-      "css": ["content-script.css"],
-      "run_at": "document_idle"
-    }
-  ]
+	"manifest_version": 3,
+	"name": "ChatGPT – Back to Last Position",
+	"version": "1.0.1",
+	"description": "Adds a button to scroll back to your reading position after ChatGPT auto-scrolls to a new response.",
+	"permissions": [],
+	"host_permissions": ["https://chatgpt.com/*"],
+	"icons": {
+		"16": "icons/icon-16.png",
+		"48": "icons/icon-48.png",
+		"128": "icons/icon-128.png"
+	},
+	"content_scripts": [
+		{
+			"matches": ["https://chatgpt.com/*"],
+			"js": ["content-script.js"],
+			"css": ["content-script.css"],
+			"run_at": "document_idle"
+		}
+	]
 }
