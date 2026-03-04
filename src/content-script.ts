@@ -142,31 +142,35 @@ function initForContainer(scrollRoot: HTMLElement): void {
   for (const fn of cleanups) fn();
   cleanups = [];
 
+  const mainEl = document.querySelector("main");
+
   // Inject the button globally into the body.
-  // We'll use fixed positioning to keep it visible over the chat.
   buttonManager.inject(document.body, scrollRoot, scrollBack);
 
+  // ── Position Watcher ──────────────────────────────────────────
+  // Use ResizeObserver to update button centering whenever the chat layout changes
+  // (e.g. sidebar toggle, window resize) without taxing the scroll event.
+  if (mainEl) {
+    const resizeObserver = new ResizeObserver(() => {
+      buttonManager.updatePosition(mainEl as HTMLElement);
+    });
+    resizeObserver.observe(mainEl);
+    resizeObserver.observe(document.body);
+    cleanups.push(() => resizeObserver.disconnect());
+    // Initial position
+    buttonManager.updatePosition(mainEl as HTMLElement);
+  }
+
   // ── Scroll listener — show / hide button ───────────────────────
-  // We use a global listener because ChatGPT swaps the scroll container frequently.
   let lastSavedPos: number | null = null;
   let lastVisibility: boolean = false;
 
   const handleScroll = rafThrottle(() => {
     if (navigationInProgress) return;
     
-    const liveRoot = findLiveScrollRoot();
-    if (!liveRoot) return;
-
     // Ensure button is ready
     if (!buttonManager.isAttached()) {
-      log("Ensuring button is attached to body");
-      buttonManager.inject(document.body, liveRoot, scrollBack);
-    }
-
-    // Update center position dynamically (sidebar toggle handling)
-    const mainEl = document.querySelector("main") as HTMLElement;
-    if (mainEl) {
-      buttonManager.updatePosition(mainEl);
+      buttonManager.inject(document.body, findLiveScrollRoot() || scrollRoot, scrollBack);
     }
 
     const savedPos = tracker.getSavedPosition();
