@@ -1,4 +1,5 @@
 import { scrollToPosition } from "./scroll-tracker";
+import { log } from "./logger";
 
 /**
  * Up-arrow SVG icon — same viewBox and sizing as ChatGPT's native
@@ -24,7 +25,7 @@ export class ButtonManager {
     scrollContainer: HTMLElement,
     onScrollBack: () => void,
   ): void {
-    console.log("[CGPT-BTP] ButtonManager.inject into", scrollContainer);
+    log("ButtonManager.inject into", scrollContainer);
     this.scrollContainer = scrollContainer;
     this.onScrollBack = onScrollBack;
 
@@ -40,7 +41,7 @@ export class ButtonManager {
     // positioning context. We prepend it so it starts at the top of the content flow,
     // which helps with 'position: sticky'.
     if (!scrollContainer.contains(this.button)) {
-      console.log("[CGPT-BTP] Prepending button to scroll container", {
+      log("Prepending button to scroll container", {
         tag: scrollContainer.tagName,
         sh: scrollContainer.scrollHeight
       });
@@ -61,12 +62,12 @@ export class ButtonManager {
   }
 
   show(): void {
-    console.log("[CGPT-BTP] ButtonManager.show");
+    log("ButtonManager.show");
     this.button?.classList.add("cgpt-btp-btn--visible");
   }
 
   hide(): void {
-    console.log("[CGPT-BTP] ButtonManager.hide");
+    log("ButtonManager.hide");
     this.button?.classList.remove("cgpt-btp-btn--visible");
   }
 
@@ -102,10 +103,10 @@ export class ButtonManager {
    */
   scrollTo(targetScrollTop: number): void {
     if (!this.scrollContainer) {
-      console.log("[CGPT-BTP] scrollTo: No scroll container!");
+      log("scrollTo: No scroll container!");
       return;
     }
-    console.log("[CGPT-BTP] scrollTo:", targetScrollTop);
+    log("scrollTo:", targetScrollTop);
     scrollToPosition(this.scrollContainer, targetScrollTop);
     this.hide();
   }

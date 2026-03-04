@@ -1,12 +1,13 @@
+import { log } from "./logger";
 /**
  * Resolves when an element matching `selector` appears in the DOM.
  * If the element already exists, resolves immediately.
  */
 export function waitForElement(selector: string): Promise<HTMLElement> {
-  console.log("[CGPT-BTP] waitForElement searching for:", selector);
+  log("waitForElement searching for:", selector);
   const existing = document.querySelector<HTMLElement>(selector);
   if (existing) {
-    console.log("[CGPT-BTP] waitForElement found existing:", selector);
+    log("waitForElement found existing:", selector);
     return Promise.resolve(existing);
   }
 
@@ -14,7 +15,7 @@ export function waitForElement(selector: string): Promise<HTMLElement> {
     const observer = new MutationObserver(() => {
       const el = document.querySelector<HTMLElement>(selector);
       if (el) {
-        console.log("[CGPT-BTP] MutationObserver found element:", selector);
+        log("MutationObserver found element:", selector);
         observer.disconnect();
         resolve(el);
       }

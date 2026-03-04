@@ -15,11 +15,7 @@ import { ScrollTracker } from "./scroll-tracker";
 import { ButtonManager } from "./button-manager";
 import { waitForElement, onUrlChange } from "./dom-observer";
 
-const LOG_PREFIX = "[CGPT-BTP]";
-
-function log(...args: unknown[]) {
-  console.log(LOG_PREFIX, ...args);
-}
+import { log } from "./logger";
 
 // ── Selectors (derived from ChatGPT's DOM) ─────────────────────────
 // The main scrollable area for chat messages.  ChatGPT usually has
