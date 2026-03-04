@@ -1,0 +1,20 @@
+content-script.js:1 [CGPT-BTP] Bootstrap started
+content-script.js:1 [CGPT-BTP] Setting up global delegation listeners
+content-script.js:1 [CGPT-BTP] Bootstrap: scrollRoot found, initializing: DIV
+content-script.js:1 [CGPT-BTP] initForContainer initializing for root <div data-scroll-root class=​"@w-sm/​main:​[scrollbar-gutter:​stable_both-edges]​ touch:​[scrollbar-width:​none]​ relative flex min-h-0 min-w-0 flex-1 flex-col [scrollbar-gutter:​stable]​ not-print:​overflow-x-clip not-print:​overflow-y-auto scroll-pt-(--header-height)​ [--sticky-padding-top:​var(--header-height)​]​ has-data-[fixed-header=less-than-xl]​:​@w-xl/​main:​scroll-pt-0 has-data-[fixed-header=less-than-xl]​:​@w-xl/​main:​[--sticky-padding-top:​0px]​ has-data-[fixed-header=less-than-xxl]​:​@w-2xl/​main:​scroll-pt-0 has-data-[fixed-header=less-than-xxl]​:​@w-2xl/​main:​[--sticky-padding-top:​0px]​">​…​</div>​flex
+content-script.js:1 [CGPT-BTP] ButtonManager.inject into parent: <body class>​…​</body>​ for scrollTarget: <div data-scroll-root class=​"@w-sm/​main:​[scrollbar-gutter:​stable_both-edges]​ touch:​[scrollbar-width:​none]​ relative flex min-h-0 min-w-0 flex-1 flex-col [scrollbar-gutter:​stable]​ not-print:​overflow-x-clip not-print:​overflow-y-auto scroll-pt-(--header-height)​ [--sticky-padding-top:​var(--header-height)​]​ has-data-[fixed-header=less-than-xl]​:​@w-xl/​main:​scroll-pt-0 has-data-[fixed-header=less-than-xl]​:​@w-xl/​main:​[--sticky-padding-top:​0px]​ has-data-[fixed-header=less-than-xxl]​:​@w-2xl/​main:​scroll-pt-0 has-data-[fixed-header=less-than-xxl]​:​@w-2xl/​main:​[--sticky-padding-top:​0px]​">​…​</div>​flex
+content-script.js:1 [CGPT-BTP] Prepending button to injection parent {tag: 'BODY', sh: 733}
+'before'
+'before'
+content-script.js:1 [CGPT-BTP] URL change detected: /c/69a8ab80-7178-8331-bf79-33ba9b7a91e3
+content-script.js:1 [CGPT-BTP] ButtonManager.hide
+content-script.js:1 [CGPT-BTP] Teardown called, clearPosition: true
+content-script.js:1 [CGPT-BTP] clearPosition
+content-script.js:1 [CGPT-BTP] waitForElement searching for: [data-scroll-root] in <main class=​"min-h-0 flex-1" id=​"main" z-index=​"-1">​…​</main>​
+content-script.js:1 [CGPT-BTP] Global Enter detected on prompt element
+content-script.js:1 [CGPT-BTP] onBeforeSend - detected user message submission
+content-script.js:1 [CGPT-BTP] isScrolledToBottom: st=17963.427734375 sh=24899 ch=733 atBottom=false
+content-script.js:1 [CGPT-BTP] savePosition: saved to 17963.427734375
+'after'
+'after'
+content-script.js:1 [CGPT-BTP] Navigation: new scroll root not found or timed out.

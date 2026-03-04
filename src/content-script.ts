@@ -91,6 +91,14 @@ function onBeforeSend(): void {
   const liveRoot = findLiveScrollRoot();
   if (liveRoot) {
     tracker.savePosition(liveRoot);
+
+    // If scroll listeners are not set up (e.g. navigation handler timed out),
+    // reinitialize them now so the button can appear.
+    if (cleanups.length === 0) {
+      log("onBeforeSend: No active scroll listeners, reinitializing");
+      navigationInProgress = false;
+      initForContainer(liveRoot);
+    }
   } else {
     log("ERROR: No scroll root found during send! document.body scrollHeight:", document.body.scrollHeight);
   }
@@ -241,18 +249,37 @@ async function bootstrap(): Promise<void> {
     teardown(true);
     
     try {
-      const mainEl = document.querySelector("main");
-      // Wait for ANY scroll root to appear, then we will use findLiveScrollRoot to find the message container
-      await waitForElement("[data-scroll-root]", mainEl || document.body);
-      const newRoot = findLiveScrollRoot();
-      log("Live scrollRoot found after navigation:", newRoot);
+      // After SPA navigation, React may replace the entire <main> element,
+      // so we cannot rely on observing a specific node. Instead, poll
+      // document.body with retries to find the new scroll root.
+      let newRoot: HTMLElement | null = null;
+      const maxAttempts = 15;
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        // Re-query from document.body each time (never cache a stale node)
+        newRoot = document.querySelector<HTMLElement>("main [data-scroll-root]");
+        if (!newRoot) {
+          newRoot = document.querySelector<HTMLElement>("[data-scroll-root]");
+        }
+        if (newRoot && newRoot.offsetHeight > 0) {
+          break;
+        }
+        newRoot = null;
+        // Wait with increasing delays: 100, 200, 300, 500, 500, 500, ...
+        const delay = Math.min(500, 100 + attempt * 100);
+        await new Promise((r) => setTimeout(r, delay));
+      }
+
+      // Also try findLiveScrollRoot which may find roots with [data-turn-id]
+      if (!newRoot) {
+        newRoot = findLiveScrollRoot();
+      }
+
       if (newRoot) {
+        log("scrollRoot found after navigation:", newRoot.tagName);
         initForContainer(newRoot);
       } else {
-        log("Navigation: No live scroll root after waiting.");
+        log("Navigation: No scroll root found after retries for", newPath);
       }
-    } catch {
-      log("Navigation: new scroll root not found or timed out.");
     } finally {
       navigationInProgress = false;
     }

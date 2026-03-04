@@ -1,6 +1,6 @@
 {
 	"name": "chatgpt-back-to-last-position-button",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "Browser extension that adds a 'scroll back to last position' button to ChatGPT",
 	"private": true,
 	"type": "module",

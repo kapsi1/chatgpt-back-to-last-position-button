@@ -1,7 +1,7 @@
 {
 	"manifest_version": 3,
 	"name": "ChatGPT – Back to Last Position",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "Adds a button to scroll back to your reading position after ChatGPT auto-scrolls to a new response.",
 	"permissions": [],
 	"host_permissions": ["https://chatgpt.com/*"],
