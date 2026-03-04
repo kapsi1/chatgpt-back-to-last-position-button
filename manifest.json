@@ -4,15 +4,18 @@
   "version": "1.0.0",
   "description": "Adds a button to scroll back to your reading position after ChatGPT auto-scrolls to a new response.",
   "icons": {
-    "16": "public/icons/icon-16.png",
-    "48": "public/icons/icon-48.png",
-    "128": "public/icons/icon-128.png"
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
   },
   "content_scripts": [
     {
       "matches": ["https://chatgpt.com/*"],
-      "js": ["src/content-script.ts"],
+      "js": ["content-script.js"],
       "run_at": "document_idle"
     }
-  ]
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
 }

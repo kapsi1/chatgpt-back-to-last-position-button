@@ -1,10 +1,34 @@
-import { defineConfig } from "vite";
-import { crx } from "@crxjs/vite-plugin";
-import manifest from "./manifest.json";
+import { defineConfig } from 'vite';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import { viteStaticCopy } from 'vite-plugin-static-copy';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  plugins: [crx({ manifest })],
   build: {
-    sourcemap: true,
+    outDir: 'dist',
+    emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        background: resolve(__dirname, 'src/background.ts'),
+        'content-script': resolve(__dirname, 'src/content-script.ts')
+      },
+      output: {
+        entryFileNames: '[name].js',
+        chunkFileNames: '[name].[hash].js',
+        assetFileNames: '[name].[ext]'
+      }
+    }
   },
+  plugins: [
+    viteStaticCopy({
+      targets: [
+        {
+          src: 'public/*',
+          dest: ''
+        }
+      ]
+    })
+  ]
 });
