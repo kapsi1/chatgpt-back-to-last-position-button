@@ -211,43 +211,5 @@ When a user sends a message on ChatGPT, the chat auto-scrolls to the bottom to s
 
 ---
 
-### 9. Testing & QA
-
-- [ ] **9.1 Manual testing checklist**
-  - [ ] Extension loads without errors in Chrome.
-  - [ ] Extension loads without errors in Opera.
-  - [ ] Button does NOT appear when the user is already at the bottom of the chat.
-  - [ ] Button DOES appear after sending a message while scrolled up.
-  - [ ] Clicking the button smoothly scrolls to the saved position.
-  - [ ] Button disappears after clicking it.
-  - [ ] Button disappears when manually scrolling back to the saved position.
-  - [ ] Switching conversations clears the button and saved position.
-  - [ ] Works correctly in ChatGPT dark theme.
-  - [ ] Works correctly in ChatGPT light theme.
-  - [ ] Button doesn't flicker or re-appear unexpectedly during streaming responses.
-  - [ ] No console errors or warnings from the extension.
-  - [ ] No interference with ChatGPT's native "scroll to bottom" button.
-
-- [ ] **9.2 Edge cases to verify**
-  - [ ] Sending a message when very close to the bottom (within threshold) — button should NOT appear.
-  - [ ] Very long conversations with lots of scroll distance — smooth scroll should still work.
-  - [ ] Rapid-fire message sends — saved position should be the first one, not overwritten.
-  - [ ] Page refresh mid-conversation — button should not appear (no stale saved position).
-  - [ ] Resizing the browser window — button positioning should remain correct.
-  - [ ] ChatGPT model selector / system prompt area at the top — button should not conflict.
-
----
-
-### 10. Publishing
-
-- [ ] **10.1 Publish to Chrome Web Store**
-  - Create a developer account if not already done.
-  - Upload the ZIP.
-  - Fill in store listing: description, screenshots, category, and privacy info.
-  - Submit for review.
-
-- [ ] **10.2 Publish to Opera Add-ons**
-  - Create a developer account on the Opera Add-ons portal.
-  - Upload the same ZIP (or an Opera-specific build if needed).
-  - Fill in store listing details.
-  - Submit for review.
+### 9. Other
+- [x] Entering a new prompt should update the saved position.

@@ -29,14 +29,10 @@ export class ScrollTracker {
   /**
    * Save the current `scrollTop` of the container.
    * Does nothing if the user is already at the bottom.
-   * If a position is already saved, it is NOT overwritten (to preserve the
-   * original reading position across rapid message sends).
+   * If a position is already saved, it is updated with the current position
+   * (unless the user is at the bottom).
    */
   savePosition(container: HTMLElement): void {
-    if (this.savedScrollTop !== null) {
-      log("savePosition: position already saved, keeping", this.savedScrollTop);
-      return;
-    }
     const atBottom = isScrolledToBottom(container);
     if (atBottom) {
       log("savePosition: container at the bottom, skipping");
